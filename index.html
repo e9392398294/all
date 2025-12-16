@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sensor Dashboard</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --text-main: #c9d1d9;
+            --accent: #58a6ff;
+            --value-color: #7ee787;
+            --error-color: #ff7b72;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 10px;
+            padding-bottom: 50px;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 1.2rem;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* Кнопка старта */
+        #start-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.9);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button {
+            background: var(--accent);
+            color: #000;
+            border: none;
+            padding: 20px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--accent);
+        }
+
+        /* Сетка карточек */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+        
+        @media (min-width: 600px) {
+            .grid { grid-template-columns: 1fr 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border: 1px solid #30363d;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .card-title {
+            font-size: 0.9rem;
+            color: var(--accent);
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            border-bottom: 1px dashed #30363d;
+            padding-bottom: 2px;
+        }
+
+        .label { font-size: 0.8rem; opacity: 0.7; }
+        .value { font-size: 0.9rem; color: var(--value-color); font-weight: bold; }
+        
+        .status-dot {
+            height: 10px; width: 10px; 
+            background-color: #333; 
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .active { background-color: var(--value-color); box-shadow: 0 0 5px var(--value-color); }
+
+    </style>
+</head>
+<body>
+
+    <div id="start-overlay">
+        <p style="margin-bottom: 20px; text-align: center; padding: 0 20px;">
+            Для доступа к датчикам требуется разрешение пользователя.
+        </p>
+        <button onclick="initSensors()">ЗАПУСТИТЬ ДАТЧИКИ</button>
+    </div>
+
+    <h1>SYSTEM STATUS <span id="clock">00:00:00</span></h1>
+
+    <div class="grid">
+        
+        <div class="card">
+            <div class="card-title">Ориентация <span id="gyro-status" class="status-dot"></span></div>
+            <div class="data-row"><span class="label">Alpha (Компас):</span> <span class="value" id="ori-alpha">0</span></div>
+            <div class="data-row"><span class="label">Beta (Наклон):</span> <span class="value" id="ori-beta">0</span></div>
+            <div class="data-row"><span class="label">Gamma (Поворот):</span> <span class="value" id="ori-gamma">0</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Акселерометр <span id="acc-status" class="status-dot"></span></div>
+            <div class="data-row"><span class="label">X:</span> <span class="value" id="acc-x">0</span></div>
+            <div class="data-row"><span class="label">Y:</span> <span class="value" id="acc-y">0</span></div>
+            <div class="data-row"><span class="label">Z:</span> <span class="value" id="acc-z">0</span></div>
+            <div class="data-row"><span class="label">Всего (m/s²):</span> <span class="value" id="acc-total">0</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">GPS / Гео <span id="geo-status" class="status-dot"></span></div>
+            <div class="data-row"><span class="label">Широта:</span> <span class="value" id="geo-lat">---</span></div>
+            <div class="data-row"><span class="label">Долгота:</span> <span class="value" id="geo-lon">---</span></div>
+            <div class="data-row"><span class="label">Точность (м):</span> <span class="value" id="geo-acc">---</span></div>
+            <div class="data-row"><span class="label">Скорость (км/ч):</span> <span class="value" id="geo-spd">0</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Питание</div>
+            <div class="data-row"><span class="label">Уровень:</span> <span class="value" id="bat-level">---</span></div>
+            <div class="data-row"><span class="label">Статус:</span> <span class="value" id="bat-status">---</span></div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Система</div>
+            <div class="data-row"><span class="label">Сеть:</span> <span class="value" id="net-type">---</span></div>
+            <div class="data-row"><span class="label">Пальцев на экране:</span> <span class="value" id="touch-cnt">0</span></div>
+            <div class="data-row"><span class="label">Разрешение:</span> <span class="value" id="screen-res">---</span></div>
+        </div>
+
+    </div>
+
+    <script>
+        // Часы
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+        }, 1000);
+
+        // Функция обновления значений
+        const setVal = (id, val) => document.getElementById(id).innerText = val;
+        const setStatus = (id, active) => {
+            const el = document.getElementById(id);
+            if(active) el.classList.add('active'); else el.classList.remove('active');
+        };
+
+        // Главная функция инициализации
+        function initSensors() {
+            document.getElementById('start-overlay').style.display = 'none';
+
+            // --- 1. MOTION & ORIENTATION (IOS 13+ Требует requestPermission) ---
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            startMotionListeners();
+                        } else {
+                            alert('Доступ к датчикам движения отклонен');
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Для Android и старых iOS
+                startMotionListeners();
+            }
+
+            // --- 2. GEOLOCATION ---
+            if ('geolocation' in navigator) {
+                setStatus('geo-status', true);
+                navigator.geolocation.watchPosition(
+                    (pos) => {
+                        setVal('geo-lat', pos.coords.latitude.toFixed(5));
+                        setVal('geo-lon', pos.coords.longitude.toFixed(5));
+                        setVal('geo-acc', Math.round(pos.coords.accuracy));
+                        // Скорость приходит в м/с, переводим в км/ч
+                        const speed = pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) : 0;
+                        setVal('geo-spd', speed);
+                    },
+                    (err) => {
+                        setVal('geo-lat', 'Ошибка');
+                        console.error(err);
+                    },
+                    { enableHighAccuracy: true }
+                );
+            }
+
+            // --- 3. BATTERY ---
+            if ('getBattery' in navigator) {
+                navigator.getBattery().then(battery => {
+                    updateBattery(battery);
+                    battery.addEventListener('levelchange', () => updateBattery(battery));
+                    battery.addEventListener('chargingchange', () => updateBattery(battery));
+                });
+            } else {
+                setVal('bat-level', 'Не поддерживается');
+            }
+
+            // --- 4. NETWORK ---
+            if ('connection' in navigator) {
+                const conn = navigator.connection;
+                const updateNet = () => {
+                    setVal('net-type', (conn.effectiveType || 'unknown').toUpperCase());
+                };
+                updateNet();
+                conn.addEventListener('change', updateNet);
+            } else {
+                setVal('net-type', 'N/A');
+            }
+
+            // --- 5. SCREEN ---
+            setVal('screen-res', `${window.screen.width}x${window.screen.height}`);
+        }
+
+        // Логика движения
+        function startMotionListeners() {
+            // Ориентация
+            window.addEventListener('deviceorientation', (event) => {
+                setStatus('gyro-status', true);
+                setVal('ori-alpha', event.alpha ? event.alpha.toFixed(1) : 0); // Компас
+                setVal('ori-beta', event.beta ? event.beta.toFixed(1) : 0);    // Наклон вперед-назад
+                setVal('ori-gamma', event.gamma ? event.gamma.toFixed(1) : 0); // Наклон влево-вправо
+            });
+
+            // Акселерометр
+            window.addEventListener('devicemotion', (event) => {
+                setStatus('acc-status', true);
+                // Используем includingGravity для показа статического положения
+                const acc = event.accelerationIncludingGravity;
+                if (acc) {
+                    const x = acc.x || 0;
+                    const y = acc.y || 0;
+                    const z = acc.z || 0;
+                    
+                    setVal('acc-x', x.toFixed(2));
+                    setVal('acc-y', y.toFixed(2));
+                    setVal('acc-z', z.toFixed(2));
+
+                    // Общая сила (вектор)
+                    const total = Math.sqrt(x*x + y*y + z*z).toFixed(2);
+                    setVal('acc-total', total);
+                }
+            });
+        }
+
+        // Логика батареи
+        function updateBattery(battery) {
+            setVal('bat-level', `${Math.round(battery.level * 100)}%`);
+            setVal('bat-status', battery.charging ? '⚡ Заряжается' : 'Работает от АКБ');
+        }
+
+        // Логика мультитач
+        document.addEventListener('touchstart', (e) => setVal('touch-cnt', e.touches.length));
+        document.addEventListener('touchend', (e) => setVal('touch-cnt', e.touches.length));
+        document.addEventListener('touchmove', (e) => setVal('touch-cnt', e.touches.length));
+
+    </script>
+</body>
+</html>
